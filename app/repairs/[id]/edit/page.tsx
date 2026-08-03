@@ -64,10 +64,35 @@ export default function EditRepairPage({ params }: { params: Promise<{ id: strin
         if (data.error) throw new Error(data.error);
         
         setFormData({
-          ...data,
-          technicianId: data.technicianId?.toString() || '',
-          dateReceived: data.dateReceived ? new Date(data.dateReceived).toISOString().split('T')[0] : '',
-        });
+  customerId: data.customerId,
+  customerName: data.customerName || "",
+
+  technicianId: data.technicianId
+    ? String(data.technicianId)
+    : "",
+
+  deviceModel: data.deviceModel || "",
+  imei: data.imei || "",
+  phoneNumber: data.phoneNumber || "",
+  city: data.city || "",
+  region: data.region || "",
+  complaint: data.complaint || "",
+  faultType: data.faultType || "",
+  repairType: data.repairType || "hardware",
+  financialService: data.financialService || "cash",
+  warrantyStatus: data.warrantyStatus || "out_of_warranty",
+  solution: data.solution || "",
+  status: data.status || "open",
+
+  photoFront: data.photoFront || "",
+  photoBack: data.photoBack || "",
+  photoRepair: data.photoRepair || "",
+  photoFinalQA: data.photoFinalQA || "",
+
+  dateReceived: data.dateReceived
+    ? new Date(data.dateReceived).toISOString().slice(0, 10)
+    : "",
+});
 
         // Set photo previews from URLs if they exist
         if (data.photoFront) setPhotoPreview(prev => ({ ...prev, photoFront: data.photoFront }));
@@ -103,14 +128,26 @@ export default function EditRepairPage({ params }: { params: Promise<{ id: strin
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/repairs/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          technicianId: formData.technicianId ? parseInt(formData.technicianId) : null,
-        }),
-      });
+      const submissionData = {
+  ...formData,
+
+  // ensure technicianId is a number
+  technicianId:
+    formData.technicianId === ""
+      ? null
+      : Number(formData.technicianId),
+
+  // keep dates as strings (YYYY-MM-DD)
+  dateReceived: formData.dateReceived || null,
+};
+
+const response = await fetch(`/api/repairs/${id}`, {
+  method: "PATCH",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(submissionData),
+});
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to update repair');
