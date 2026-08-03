@@ -133,9 +133,9 @@ export default function EditRepairPage({ params }: { params: Promise<{ id: strin
 
   // ensure technicianId is a number
   technicianId:
-    formData.technicianId === ""
-      ? null
-      : Number(formData.technicianId),
+  formData.technicianId === "unassigned"
+    ? null
+    : Number(formData.technicianId),
 
   // keep dates as strings (YYYY-MM-DD)
   dateReceived: formData.dateReceived || null,
@@ -319,7 +319,9 @@ const response = await fetch(`/api/repairs/${id}`, {
                   <SelectValue placeholder="Select technician" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">
+  Unassigned
+</SelectItem>
                   {technicians.map((tech) => (
                     <SelectItem key={tech.id} value={tech.id.toString()}>
                       {tech.name}
