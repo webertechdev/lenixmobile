@@ -50,15 +50,66 @@ export async function createRepair(data: any, userId: number | null) {
   await logAction('repairs', newRepair.id, userId, 'INSERT', null, newRepair);
   return newRepair;
 }
-
 export async function updateRepair(id: number, data: any, userId: number) {
-  const [oldRepair] = await db.select().from(repairs).where(eq(repairs.id, id));
-  const [updatedRepair] = await db.update(repairs)
-    .set({ ...data, updatedAt: new Date() })
+  const [oldRepair] = await db
+    .select()
+    .from(repairs)
+    .where(eq(repairs.id, id));
+
+  // Remove fields that should never be updated
+  const {
+    id: _id,
+    repairNumber: _repairNumber,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    customer,
+    technician,
+    ...updateData
+  } = data;
+
+  // Convert numeric IDs
+  if (updateData.customerId !== undefined && updateData.customerId !== null) {
+    updateData.customerId = Number(updateData.customerId);
+  }
+
+  if (updateData.technicianId !== undefined && updateData.technicianId !== null) {
+    updateData.technicianId = Number(updateData.technicianId);
+  }
+
+  // Convert date strings into Date objects
+  if (updateData.dateReceived) {
+    updateData.dateReceived = new Date(updateData.dateReceived);
+  }
+
+  if (updateData.dateCompleted) {
+    updateData.dateCompleted = new Date(updateData.dateCompleted);
+  }
+
+  // Remove undefined values
+  Object.keys(updateData).forEach((key) => {
+    if (updateData[key] === undefined) {
+      delete updateData[key];
+    }
+  });
+
+  const [updatedRepair] = await db
+    .update(repairs)
+    .set({
+      ...updateData,
+      updatedAt: new Date(),
+    })
     .where(eq(repairs.id, id))
     .returning();
-    
-  await logAction('repairs', id, userId, 'UPDATE', oldRepair, updatedRepair);
+
+  await logAction(
+    "repairs",
+    id,
+    userId,
+    "UPDATE",
+    oldRepair,
+    updatedRepair
+  );
+
   return updatedRepair;
 }
 
