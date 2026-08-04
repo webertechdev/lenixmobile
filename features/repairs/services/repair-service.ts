@@ -2,18 +2,31 @@ import { db } from '@/lib/db';
 import { repairs, customers, repairParts, inventory } from '@/drizzle/schema';
 import { logAction } from '@/features/audit/services/audit-service';
 import { count, eq, sql, and } from 'drizzle-orm';
-
 export async function generateRepairNumber() {
   const year = new Date().getFullYear();
   const prefix = `LNX-${year}-`;
-  
-  const result = await db
-    .select({ count: count() })
+
+  const lastRepair = await db
+    .select({
+      repairNumber: repairs.repairNumber,
+    })
     .from(repairs)
-    .where(sql`${repairs.repairNumber} LIKE ${prefix + '%'}`);
-    
-  const nextNum = (result[0]?.count || 0) + 1;
-  return `${prefix}${nextNum.toString().padStart(6, '0')}`;
+    .where(sql`${repairs.repairNumber} LIKE ${prefix + '%'}`)
+    .orderBy(sql`${repairs.repairNumber} DESC`)
+    .limit(1);
+
+  let nextNumber = 1;
+
+  if (lastRepair.length > 0) {
+    const last = lastRepair[0].repairNumber;
+    const numericPart = parseInt(last.replace(prefix, ""), 10);
+
+    if (!isNaN(numericPart)) {
+      nextNumber = numericPart + 1;
+    }
+  }
+
+  return `${prefix}${String(nextNumber).padStart(6, "0")}`;
 }
 
 export async function createRepair(data: any, userId: number | null) {
