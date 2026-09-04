@@ -12,7 +12,8 @@ import {
   Settings, 
   LogOut,
   Smartphone,
-  Shield
+  Shield,
+  BadgeDollarSign
 } from "lucide-react";
 
 import {
@@ -58,6 +59,13 @@ const items = [
     url: "/inventory",
     icon: Package,
   },
+    {
+    title: "Service Fees",
+    url: "/services",
+    icon: BadgeDollarSign,
+  },
+
+  
   {
     title: "Audit Log",
     url: "/audit",

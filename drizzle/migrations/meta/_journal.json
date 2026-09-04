@@ -8,6 +8,13 @@
       "when": 1785564876042,
       "tag": "0000_odd_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788530000000,
+      "tag": "0001_service_fees",
+      "breakpoints": true
     }
   ]
 }

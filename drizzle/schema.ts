@@ -74,6 +74,19 @@ export const technicians = pgTable("technicians", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+//services table  
+export const services = pgTable("services", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 100 }).unique(),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  fee: decimal("fee", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 /**
  * Repairs table
  */
@@ -104,6 +117,35 @@ export const repairs = pgTable("repairs", {
   dateCompleted: timestamp("date_completed"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Repair Services junction table
+export const repairServices = pgTable("repair_services", {
+  id: serial("id").primaryKey(),
+
+  repairId: integer("repair_id")
+    .references(() => repairs.id)
+    .notNull(),
+
+  serviceId: integer("service_id")
+    .references(() => services.id),
+
+  // Snapshot the service details used at the time of the repair.
+  // This means future catalogue price changes won't alter old repairs.
+  serviceName: varchar("service_name", { length: 255 }).notNull(),
+
+  quantity: integer("quantity")
+    .default(1)
+    .notNull(),
+
+  unitFee: decimal("unit_fee", {
+    precision: 10,
+    scale: 2,
+  }).notNull(),
+
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
 });
 
 /**

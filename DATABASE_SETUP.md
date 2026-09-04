@@ -5,7 +5,7 @@ Lenix Mobile uses PostgreSQL (via Supabase) as its database. To get the applicat
 
 ## The Error You're Seeing
 ```
-getaddrinfo ENOTFOUND db.cbzkmefioqkzfhilkfla.supabase.co
+connect ENETUNREACH <IPv6-address>:5432
 ```
 
 This error means the application cannot find the database server. This typically happens because:
@@ -37,11 +37,23 @@ postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.s
 
 ### 3. Set the Environment Variable
 
+#### For GitHub Codespaces:
+Replace the old direct URL with the **Transaction Pooler** URL copied from Supabase. The value must use a hostname ending in `.pooler.supabase.com` and port `6543`. Store it as a Codespaces/repository secret or an uncommitted `.env.local` value; never commit the real password or `DATABASE_URL` to GitHub.
+
 #### For Local Development:
 Create a `.env.local` file in the project root:
 ```
 DATABASE_URL=postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 ```
+
+### Most Important Live Change
+
+In GitHub Codespaces or your deployment environment, change `DATABASE_URL` itself from the old direct URL to the exact Transaction Pooler URL copied from Supabase:
+```text
+postgresql://postgres.<YOUR_PROJECT_REF>:<NEW_PASSWORD>@aws-0-<YOUR_REGION>.pooler.supabase.com:6543/postgres
+```
+
+Then restart Codespaces and redeploy the live system. Do not change `lib/db.ts`; it is already using `DATABASE_URL` correctly.
 
 #### For Vercel Deployment:
 1. Go to your Vercel project dashboard
@@ -100,9 +112,9 @@ Note: The seed script uses a local PostgreSQL connection. For Supabase, you'll n
 
 ## Troubleshooting
 
-### "ENOTFOUND" Error
+### "ENOTFOUND" or "ENETUNREACH" Error
 - Double-check your connection string
-- Verify you're using the **Transaction** mode URL (not the direct connection)
+- Verify you're using the **Transaction** mode URL on port `6543` (not the direct `db.<project-ref>.supabase.co:5432` connection)
 - Check that the project reference in the URL matches your Supabase project
 
 ### "Connection refused" Error

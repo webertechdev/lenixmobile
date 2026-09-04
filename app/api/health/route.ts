@@ -13,10 +13,22 @@ export async function GET() {
     }, { status: 503 });
   }
 
+  const databaseUrlForDisplay = (() => {
+    try {
+      const parsedUrl = new URL(databaseUrl);
+      parsedUrl.username = '***';
+      parsedUrl.password = '***';
+      return parsedUrl.toString();
+    } catch {
+      return 'configured';
+    }
+  })();
+
   try {
     // Create a direct connection to test
     const sql = postgres(databaseUrl, {
       connect_timeout: 10,
+      ssl: 'require',
       onnotice: () => {},
     });
 
@@ -30,7 +42,7 @@ export async function GET() {
       status: 'ok',
       message: 'Database connection successful',
       databaseConfigured: true,
-      databaseUrl: databaseUrl.substring(0, 40) + '***',
+      databaseUrl: databaseUrlForDisplay,
       timestamp: new Date().toISOString(),
     }, { status: 200 });
   } catch (error: any) {
@@ -58,6 +70,12 @@ export async function GET() {
         'Check that the username includes your project reference (postgres.[project-ref])',
         'Make sure you copied the entire connection string from Supabase',
       ];
+    } else if (errorCode === 'ENETUNREACH' || errorCode === 'EHOSTUNREACH') {
+      suggestions = [
+        'The direct Supabase database host requires IPv6 from this environment',
+        'Use Supabase Connection Pooler in Transaction mode on port 6543',
+        'Copy the pooler DATABASE_URL from Supabase Dashboard > Settings > Database',
+      ];
     } else {
       suggestions = [
         'Verify DATABASE_URL is correct in your environment variables',
@@ -71,7 +89,7 @@ export async function GET() {
       message: `Database connection failed: ${errorMessage}`,
       errorCode,
       databaseConfigured: true,
-      databaseUrl: databaseUrl.substring(0, 40) + '***',
+      databaseUrl: databaseUrlForDisplay,
       suggestions,
       timestamp: new Date().toISOString(),
     }, { status: 503 });

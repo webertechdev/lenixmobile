@@ -13,6 +13,7 @@ const client = connectionString
   ? postgres(connectionString, { 
       prepare: false,
       connect_timeout: 10,
+      ssl: 'require',
       onnotice: () => {},
     }) 
   : null;

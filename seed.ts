@@ -2,8 +2,13 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './drizzle/schema';
 
-const connectionString = 'postgresql://lenix:lenix123@localhost:5432/lenix_db';
-const client = postgres(connectionString);
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required to seed the database');
+}
+
+const client = postgres(connectionString, { ssl: 'require' });
 const db = drizzle(client, { schema });
 
 async function seed() {
