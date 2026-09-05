@@ -10,6 +10,7 @@ import { desc, sql } from 'drizzle-orm';
 import { EditInventoryDialog } from '@/features/inventory/components/EditInventoryDialog';
 import { AddInventoryDialog } from '@/features/inventory/components/AddInventoryDialog';
 import { DeleteButton } from '@/components/ui/delete-button';
+import { RefreshButton } from '@/components/common/RefreshButton';
 
 export default async function InventoryPage() {
   let items: any[] = [];
@@ -57,7 +58,25 @@ for (const row of usageRows) {
           <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
           <p className="text-muted-foreground">Manage spare parts and stock levels</p>
         </div>
-        <AddInventoryDialog />
+        <div className="flex items-center gap-2">
+  <RefreshButton />
+  <div className="flex items-center gap-2">
+  <RefreshButton />
+  <div className="flex items-center gap-2">
+  <RefreshButton />
+  <div className="flex items-center gap-2">
+  <RefreshButton />
+  <div className="flex items-center gap-2">
+  <RefreshButton />
+  <div className="flex items-center gap-2">
+  <RefreshButton />
+  <AddInventoryDialog />
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
       </div>
 
       {error && (
