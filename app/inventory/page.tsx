@@ -60,22 +60,7 @@ for (const row of usageRows) {
         </div>
         <div className="flex items-center gap-2">
   <RefreshButton />
-  <div className="flex items-center gap-2">
-  <RefreshButton />
-  <div className="flex items-center gap-2">
-  <RefreshButton />
-  <div className="flex items-center gap-2">
-  <RefreshButton />
-  <div className="flex items-center gap-2">
-  <RefreshButton />
-  <div className="flex items-center gap-2">
-  <RefreshButton />
   <AddInventoryDialog />
-</div>
-</div>
-</div>
-</div>
-</div>
 </div>
       </div>
 
