@@ -1,26 +1,36 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type TablePaginationProps = {
   page: number;
   pageSize: number;
   totalItems: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
 };
 
 export function TablePagination({
   page,
   pageSize,
   totalItems,
-  onPageChange,
-  onPageSizeChange,
 }: TablePaginationProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
+
+  const updatePagination = (newPage: number, newPageSize: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    params.set("page", String(newPage));
+    params.set("pageSize", String(newPageSize));
+
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   return (
     <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -30,7 +40,7 @@ export function TablePagination({
         <select
           value={pageSize}
           onChange={(event) => {
-            onPageSizeChange(Number(event.target.value));
+            updatePagination(1, Number(event.target.value));
           }}
           className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           aria-label="Items per page"
@@ -46,7 +56,7 @@ export function TablePagination({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => onPageChange(page - 1)}
+          onClick={() => updatePagination(page - 1, pageSize)}
           disabled={!canGoPrevious}
           className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
         >
@@ -60,7 +70,7 @@ export function TablePagination({
 
         <button
           type="button"
-          onClick={() => onPageChange(page + 1)}
+          onClick={() => updatePagination(page + 1, pageSize)}
           disabled={!canGoNext}
           className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
         >

@@ -6,26 +6,59 @@ import { Plus, Search, Package, AlertTriangle, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/db';
 import { inventory, repairParts } from '@/drizzle/schema';
-import { desc, sql } from 'drizzle-orm';
+import { desc, sql, count, eq } from 'drizzle-orm';
 import { EditInventoryDialog } from '@/features/inventory/components/EditInventoryDialog';
 import { AddInventoryDialog } from '@/features/inventory/components/AddInventoryDialog';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { RefreshButton } from '@/components/common/RefreshButton';
+import { TablePagination } from '@/components/common/TablePagination';
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    page?: string;
+    pageSize?: string;
+  }>;
+}) {
   let items: any[] = [];
   let error: string | null = null;
 let usageByPartId = new Map<number, number>();
+     const params = await searchParams;
+
+  const pageSizeOptions = [5, 50, 100];
+  const requestedPageSize = Number(params.pageSize);
+  const pageSize = pageSizeOptions.includes(requestedPageSize)
+    ? requestedPageSize
+    : 50;
+
+  const requestedPage = Number(params.page);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : 1;
+
+  let totalItems = 0;
   
   try {
     if (!db) {
       throw new Error("Database not initialized. Check your DATABASE_URL in Settings.");
     }
+    const totalRows = await db
+      .select({ count: count() })
+      .from(inventory);
+
+    totalItems = Number(totalRows[0]?.count || 0);
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
     items = await db
       .select()
       .from(inventory)
       .orderBy(desc(inventory.createdAt))
-      .limit(50);
+      .limit(pageSize)
+      .offset(offset);
 
     const usageRows = await db
       .select({
@@ -147,6 +180,12 @@ for (const row of usageRows) {
               </TableBody>
             </Table>
           </div>
+
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={totalItems}
+          />
         </CardContent>
       </Card>
     </div>
