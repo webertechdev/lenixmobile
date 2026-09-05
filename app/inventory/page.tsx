@@ -12,6 +12,7 @@ import { AddInventoryDialog } from '@/features/inventory/components/AddInventory
 import { DeleteButton } from '@/components/ui/delete-button';
 import { RefreshButton } from '@/components/common/RefreshButton';
 import { TablePagination } from '@/components/common/TablePagination';
+import { ExcelExportButton } from "@/components/common/ExcelExportButton";
 
 export default async function InventoryPage({
   searchParams,
@@ -22,7 +23,8 @@ export default async function InventoryPage({
   }>;
 }) {
   let items: any[] = [];
-  let error: string | null = null;
+let exportItems: any[] = [];
+let error: string | null = null;
 let usageByPartId = new Map<number, number>();
      const params = await searchParams;
 
@@ -59,6 +61,8 @@ let usageByPartId = new Map<number, number>();
       .orderBy(desc(inventory.createdAt))
       .limit(pageSize)
       .offset(offset);
+    exportItems = await db.select().from(inventory)
+      .orderBy(desc(inventory.createdAt));
 
     const usageRows = await db
       .select({
@@ -92,6 +96,20 @@ for (const row of usageRows) {
           <p className="text-muted-foreground">Manage spare parts and stock levels</p>
         </div>
         <div className="flex items-center gap-2">
+  <ExcelExportButton
+    data={exportItems.map((item) => ({
+  "Part Name": item.partName,
+  Code: item.partCode || "N/A",
+  Stock: item.quantity,
+  Used: usageByPartId.get(item.id) || 0,
+  "Min. Stock": item.minimumStock,
+  Price: item.unitPrice,
+  Status:
+    item.quantity <= item.minimumStock ? "Low Stock" : "In Stock",
+}))}
+    filename="inventory"
+    sheetName="Inventory"
+  />
   <RefreshButton />
   <AddInventoryDialog />
 </div>
