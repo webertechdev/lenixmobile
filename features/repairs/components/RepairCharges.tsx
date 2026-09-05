@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ export function RepairCharges({
 }: {
   repairId: number;
 }) {
+  const router = useRouter();
   const [parts, setParts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
@@ -186,6 +188,7 @@ export function RepairCharges({
       }
 
       await load();
+      router.refresh();
     } catch (error: any) {
       toast.error(
         error?.message || "Failed to add charge"
@@ -229,6 +232,7 @@ export function RepairCharges({
       );
 
       await load();
+      router.refresh();
     } catch (error: any) {
       toast.error(
         error?.message || "Failed to remove item"

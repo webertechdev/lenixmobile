@@ -13,6 +13,7 @@ import { JobCardPrinter } from '@/features/repairs/components/JobCardPrinter';
 import { AssignTechnicianButton } from '@/features/repairs/components/AssignTechnicianButton';
 import { RepairActions } from '@/features/repairs/components/RepairActions';
 import { StatusUpdateActions } from '@/features/repairs/components/StatusUpdateActions';
+import { RepairCharges } from '@/features/repairs/components/RepairCharges';
 
 export default async function RepairDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -108,7 +109,7 @@ export default async function RepairDetailPage({ params }: { params: Promise<{ i
             {repairData.solution && (
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground font-semibold text-green-700">Solution</p>
-                <p className="mt-1 p-3 bg-green-50 rounded-md border border-green-100">{repairData.solution}</p>
+                <p className="mt-1 p-3 bg-green-950/40 rounded-md border border-green-800 text-green-100">{repairData.solution}</p>
               </div>
             )}
           </CardContent>
@@ -122,7 +123,7 @@ export default async function RepairDetailPage({ params }: { params: Promise<{ i
             {repairData.partsUsed.length > 0 ? (
               <div className="space-y-2">
                 {repairData.partsUsed.map((part: any) => (
-                  <div key={part.id} className="flex justify-between items-center text-sm p-2 bg-slate-50 rounded border">
+                  <div key={part.id} className="flex justify-between items-center text-sm p-2 bg-slate-800/50 rounded border">
                     <span>{part.partName} (x{part.quantity})</span>
                     <span className="font-mono">${(parseFloat(part.unitPrice) * part.quantity).toFixed(2)}</span>
                   </div>
@@ -157,6 +158,7 @@ export default async function RepairDetailPage({ params }: { params: Promise<{ i
             </div>
           </CardContent>
         </Card>
+        <RepairCharges repairId={repairId} />
 
         {/* Status Update Card for Team Lead / Admin */}
         <Card className="md:col-span-3">

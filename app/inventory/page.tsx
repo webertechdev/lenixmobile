@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, Search, Package, AlertTriangle, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/db';
-import { inventory } from '@/drizzle/schema';
-import { desc } from 'drizzle-orm';
+import { inventory, repairParts } from '@/drizzle/schema';
+import { desc, sql } from 'drizzle-orm';
 import { EditInventoryDialog } from '@/features/inventory/components/EditInventoryDialog';
 import { AddInventoryDialog } from '@/features/inventory/components/AddInventoryDialog';
 import { DeleteButton } from '@/components/ui/delete-button';
@@ -14,16 +14,39 @@ import { DeleteButton } from '@/components/ui/delete-button';
 export default async function InventoryPage() {
   let items: any[] = [];
   let error: string | null = null;
+let usageByPartId = new Map<number, number>();
   
   try {
     if (!db) {
       throw new Error("Database not initialized. Check your DATABASE_URL in Settings.");
     }
-    items = await db.select().from(inventory).orderBy(desc(inventory.createdAt)).limit(50);
+    items = await db
+      .select()
+      .from(inventory)
+      .orderBy(desc(inventory.createdAt))
+      .limit(50);
+
+    const usageRows = await db
+      .select({
+        partId: repairParts.partId,
+        usedQuantity: sql<number>`coalesce(sum(${repairParts.quantity}), 0)`,
+      })
+      .from(repairParts)
+      .groupBy(repairParts.partId);
+
+    usageByPartId = new Map<number, number>();
+
+for (const row of usageRows) {
+  usageByPartId.set(
+    row.partId,
+    Number(row.usedQuantity || 0)
+  );
+}
   } catch (e: any) {
     console.error("Inventory fetch error:", e);
     error = e.message || "Failed to load inventory";
   }
+  
 
   const lowStockCount = items.filter((item: any) => item.quantity <= item.minimumStock).length;
 
@@ -74,6 +97,7 @@ export default async function InventoryPage() {
                   <TableHead>Part Name</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Used</TableHead>
                   <TableHead>Min. Stock</TableHead>
 	                  <TableHead>Price</TableHead>
 	                  <TableHead>Status</TableHead>
@@ -86,6 +110,7 @@ export default async function InventoryPage() {
                     <TableCell className="font-medium">{item.partName}</TableCell>
                     <TableCell>{item.partCode || 'N/A'}</TableCell>
                     <TableCell>{item.quantity}</TableCell>
+                    <TableCell>{usageByPartId.get(item.id) || 0}</TableCell>
                     <TableCell>{item.minimumStock}</TableCell>
                     <TableCell>${item.unitPrice}</TableCell>
 	                    <TableCell>
@@ -109,7 +134,7 @@ export default async function InventoryPage() {
 	                  </TableRow>
                 )) : !error && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       No inventory items found. Add your first spare part to get started.
                     </TableCell>
