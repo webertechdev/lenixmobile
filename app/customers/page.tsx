@@ -7,18 +7,37 @@ import { db } from '@/lib/db';
 import { EditCustomerDialog } from '@/features/customers/components/EditCustomerDialog';
 import { AddCustomerDialog } from '@/features/customers/components/AddCustomerDialog';
 import { DeleteButton } from '@/components/ui/delete-button';
+import { TablePagination } from '@/components/common/TablePagination';
 import { customers } from '@/drizzle/schema';
-import { desc } from 'drizzle-orm';
+import { count, desc } from 'drizzle-orm';
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   let allCustomers: any[] = [];
   let error: string | null = null;
+  let totalItems = 0;
+  const params = await searchParams;
+  const pageSizeOptions = [5, 50, 100];
+  const requestedPageSize = Number(params.pageSize);
+  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
+  const requestedPage = Number(params.page);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   
   try {
     if (!db) {
       throw new Error("Database not initialized. Check your DATABASE_URL in Settings.");
     }
-    allCustomers = await db.select().from(customers).orderBy(desc(customers.createdAt)).limit(50);
+    const totalRows = await db.select({ count: count() }).from(customers);
+    totalItems = Number(totalRows[0]?.count || 0);
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    allCustomers = await db.select().from(customers)
+      .orderBy(desc(customers.createdAt))
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize);
   } catch (e: any) {
     console.error("Customers fetch error:", e);
     error = e.message || "Failed to load customers";
@@ -45,7 +64,7 @@ export default async function CustomersPage() {
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <CardTitle>All Customers ({allCustomers.length})</CardTitle>
+          <CardTitle>All Customers ({totalItems})</CardTitle>
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <input 
@@ -91,6 +110,7 @@ export default async function CustomersPage() {
               </TableBody>
             </Table>
           </div>
+          <TablePagination page={Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)))} pageSize={pageSize} totalItems={totalItems} />
         </CardContent>
       </Card>
     </div>

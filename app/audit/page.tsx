@@ -4,14 +4,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { History, User, Activity, Database, FileText, UserPlus, UserX, Wrench } from 'lucide-react';
 import { db } from '@/lib/db';
 import { auditLog, users } from '@/drizzle/schema';
-import { desc, eq } from 'drizzle-orm';
+import { count, desc, eq } from 'drizzle-orm';
+import { TablePagination } from '@/components/common/TablePagination';
 
-export default async function AuditLogPage() {
+export default async function AuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   let logs: any[] = [];
   let error: string | null = null;
+  let totalItems = 0;
+  const params = await searchParams;
+  const pageSizeOptions = [5, 50, 100];
+  const requestedPageSize = Number(params.pageSize);
+  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
+  const requestedPage = Number(params.page);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   
   try {
     if (db) {
+      const totalRows = await db.select({ count: count() }).from(auditLog);
+      totalItems = Number(totalRows[0]?.count || 0);
+      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      const safePage = Math.min(page, totalPages);
       logs = await db.select({
         log: auditLog,
         userName: users.name,
@@ -20,7 +36,8 @@ export default async function AuditLogPage() {
       .from(auditLog)
       .leftJoin(users, eq(auditLog.userId, users.id))
       .orderBy(desc(auditLog.createdAt))
-      .limit(100);
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize);
     } else {
       error = "Database not initialized. Check your DATABASE_URL.";
     }
@@ -117,6 +134,7 @@ export default async function AuditLogPage() {
               </TableBody>
             </Table>
           </div>
+          <TablePagination page={Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)))} pageSize={pageSize} totalItems={totalItems} />
         </CardContent>
       </Card>
     </div>

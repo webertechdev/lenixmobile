@@ -27,7 +27,7 @@ export default async function RepairsPage({
   const params = await searchParams;
   const pageSizeOptions = [5, 50, 100];
   const requestedPageSize = Number(params.pageSize);
-  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 50;
+  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
   const requestedPage = Number(params.page);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const searchQuery = params.q?.trim() || '';

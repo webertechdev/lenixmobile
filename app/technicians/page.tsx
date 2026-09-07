@@ -10,17 +10,25 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { AddTechnicianDialog } from "@/features/technicians/components/AddTechnicianDialog";
 import { EditTechnicianDialog } from "@/features/technicians/components/EditTechnicianDialog";
+import { TablePagination } from "@/components/common/TablePagination";
+import { useSearchParams } from "next/navigation";
 
 export default function TechniciansPage() {
   const [allTechs, setAllTechs] = useState<any[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const pageSize = [5, 50, 100].includes(Number(searchParams.get("pageSize")))
+    ? Number(searchParams.get("pageSize"))
+    : 5;
+  const page = Number(searchParams.get("page")) > 0 ? Number(searchParams.get("page")) : 1;
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     fetchCurrentUserRole();
     fetchTechnicians();
-  }, []);
+  }, [searchParams]);
 
   const fetchCurrentUserRole = async () => {
     try {
@@ -38,11 +46,12 @@ export default function TechniciansPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/technicians");
+      const response = await fetch(`/api/technicians?page=${page}&pageSize=${pageSize}`);
       const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
         setAllTechs(data);
+        setTotalItems(Number(response.headers.get("X-Total-Count") || data.length));
       } else if (!response.ok) {
         setError(data.error || "Failed to load technicians");
       }
@@ -226,7 +235,7 @@ export default function TechniciansPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Team Members ({allTechs.length})</CardTitle>
+          <CardTitle>All Team Members ({totalItems})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -326,6 +335,7 @@ export default function TechniciansPage() {
               </TableBody>
             </Table>
           </div>
+          <TablePagination page={Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)))} pageSize={pageSize} totalItems={totalItems} />
         </CardContent>
       </Card>
     </div>

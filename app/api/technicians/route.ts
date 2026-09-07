@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAllTechnicians } from '@/features/technicians/services/technician-service';
 import { createClient } from '@/utils/supabase/server';
 import { db } from '@/lib/db';
+import { technicians } from '@/drizzle/schema';
+import { count, desc } from 'drizzle-orm';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -18,8 +19,23 @@ export async function GET() {
       }, { status: 503 });
     }
 
-    const techs = await getAllTechnicians();
-    return NextResponse.json(techs);
+    const url = new URL(req.url);
+    const requestedPage = Number(url.searchParams.get('page'));
+    const requestedPageSize = Number(url.searchParams.get('pageSize'));
+    const pageSize = [5, 50, 100].includes(requestedPageSize) ? requestedPageSize : 5;
+    const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const totalRows = await db.select({ count: count() }).from(technicians);
+    const totalItems = Number(totalRows[0]?.count || 0);
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const techs = await db.select().from(technicians)
+      .orderBy(desc(technicians.createdAt))
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize);
+
+    return NextResponse.json(techs, {
+      headers: { 'X-Total-Count': String(totalItems) },
+    });
   } catch (error: any) {
     console.error('Error fetching technicians:', error);
     

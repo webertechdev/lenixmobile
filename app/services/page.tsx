@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ServiceManager } from "@/features/repairs/components/ServiceManager";
 
 export default function ServicesPage() {
@@ -10,7 +11,9 @@ export default function ServicesPage() {
         </p>
       </div>
 
-      <ServiceManager />
+      <Suspense fallback={null}>
+        <ServiceManager />
+      </Suspense>
     </div>
   );
 }

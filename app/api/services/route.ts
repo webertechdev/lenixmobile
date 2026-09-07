@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { services, users } from "@/drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { count, eq, desc } from "drizzle-orm";
 import { createClient } from "@/utils/supabase/server";
 
 async function requireUser() {
@@ -38,16 +38,32 @@ async function requireUser() {
  * Admin needs all services so inactive services can be managed.
  * Repair screens can filter the response to active services.
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await requireUser();
 
-    const items = await db
+    const url = new URL(req.url);
+    const requestedPage = Number(url.searchParams.get("page"));
+    const requestedPageSize = Number(url.searchParams.get("pageSize"));
+    const hasPagination = url.searchParams.has("page") || url.searchParams.has("pageSize");
+
+    const totalRows = await db.select({ count: count() }).from(services);
+    const totalItems = Number(totalRows[0]?.count || 0);
+    const pageSize = [5, 50, 100].includes(requestedPageSize) ? requestedPageSize : 5;
+    const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const query = db
       .select()
       .from(services)
       .orderBy(desc(services.name));
+    const items = hasPagination
+      ? await query.limit(pageSize).offset((safePage - 1) * pageSize)
+      : await query;
 
-    return NextResponse.json(items);
+    return NextResponse.json(items, {
+      headers: { "X-Total-Count": String(totalItems) },
+    });
   } catch (error: any) {
     const message = error?.message || "Failed to load services";
 

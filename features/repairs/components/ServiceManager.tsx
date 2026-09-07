@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
+import { TablePagination } from "@/components/common/TablePagination";
 
 type ServiceForm = {
   name: string;
@@ -54,13 +56,19 @@ export function ServiceManager() {
 
   const [saving, setSaving] =
     useState(false);
+  const searchParams = useSearchParams();
+  const pageSize = [5, 50, 100].includes(Number(searchParams.get("pageSize")))
+    ? Number(searchParams.get("pageSize"))
+    : 5;
+  const page = Number(searchParams.get("page")) > 0 ? Number(searchParams.get("page")) : 1;
+  const [totalItems, setTotalItems] = useState(0);
 
   const load = async () => {
     setLoading(true);
 
     try {
       const response =
-        await fetch("/api/services");
+        await fetch(`/api/services?page=${page}&pageSize=${pageSize}`);
 
       const data =
         await response.json();
@@ -77,6 +85,7 @@ export function ServiceManager() {
           ? data
           : []
       );
+          setTotalItems(Number(response.headers.get("X-Total-Count") || data.length));
     } catch (error: any) {
       toast.error(
         error?.message ||
@@ -89,7 +98,7 @@ export function ServiceManager() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [searchParams]);
 
   const save = async (
     event: React.FormEvent
@@ -481,6 +490,8 @@ export function ServiceManager() {
                   </div>
                 </div>
               ))}
+
+              <TablePagination page={Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)))} pageSize={pageSize} totalItems={totalItems} />
 
             </div>
           )}

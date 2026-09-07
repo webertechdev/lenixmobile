@@ -32,7 +32,7 @@ let usageByPartId = new Map<number, number>();
   const requestedPageSize = Number(params.pageSize);
   const pageSize = pageSizeOptions.includes(requestedPageSize)
     ? requestedPageSize
-    : 50;
+    : 5;
 
   const requestedPage = Number(params.page);
   const page = Number.isInteger(requestedPage) && requestedPage > 0
