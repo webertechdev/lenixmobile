@@ -94,16 +94,32 @@ export default async function RepairsPage({
           <div className="flex gap-2">
             <ExcelExportButton
               data={exportRepairs.map((row) => ({
-                "Repair #": row.repair.repairNumber,
-                Date: new Date(row.repair.dateReceived).toLocaleDateString(),
-                Customer: row.customerName || "N/A",
-                Phone: row.repair.phoneNumber,
-                Model: row.repair.deviceModel,
-                IMEI: row.repair.imei,
-                Status: row.repair.status.toUpperCase().replace("_", " "),
-                Technician: row.technicianName || "Unassigned",
-                Complaint: row.repair.complaint,
-              }))}
+  "Repair #": row.repair.repairNumber,
+  "Date Received": row.repair.dateReceived
+    ? new Date(row.repair.dateReceived).toLocaleDateString()
+    : "",
+  "Date Completed": row.repair.dateCompleted
+    ? new Date(row.repair.dateCompleted).toLocaleDateString()
+    : "",
+  Customer: row.customerName || "N/A",
+  Phone: row.repair.phoneNumber,
+  "Device Model": row.repair.deviceModel,
+  IMEI: row.repair.imei,
+  City: row.repair.city || "",
+  Region: row.repair.region || "",
+  "Fault Type": row.repair.faultType || "",
+  "Repair Type": row.repair.repairType || "",
+  "Financial Service": row.repair.financialService || "",
+  "Warranty Status": row.repair.warrantyStatus || "",
+  Status: row.repair.status
+    ? row.repair.status.toUpperCase().replace("_", " ")
+    : "",
+  Technician: row.technicianName || "Unassigned",
+  Complaint: row.repair.complaint || "",
+  Solution: row.repair.solution || "",
+  Cost: row.repair.cost || "",
+  Remarks: row.repair.remarks || "",
+}))}
               filename="repairs"
               sheetName="Repairs"
             />
