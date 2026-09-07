@@ -1,75 +1,40 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { FormEvent, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, FileDown, Wrench } from "lucide-react";
+import { Search, Wrench } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { TablePagination } from "@/components/common/TablePagination";
 import { RepairActions } from "./RepairActions";
 import { AssignTechnicianButton } from "./AssignTechnicianButton";
 
 interface RepairsListClientProps {
   repairs: any[];
   technicians: any[];
+  searchQuery: string;
+  totalItems: number;
+  page: number;
+  pageSize: number;
 }
 
-export function RepairsListClient({ repairs, technicians }: RepairsListClientProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [exporting, setExporting] = useState(false);
+export function RepairsListClient({ repairs, technicians, searchQuery, totalItems, page, pageSize }: RepairsListClientProps) {
+  const [query, setQuery] = useState(searchQuery);
+  const router = useRouter();
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
 
-  const filteredRepairs = useMemo(() => {
-    if (!searchQuery.trim()) return repairs;
-    
-    const query = searchQuery.toLowerCase();
-    return repairs.filter((row) => 
-      row.repair.repairNumber.toLowerCase().includes(query) ||
-      row.repair.imei.toLowerCase().includes(query) ||
-      (row.customerName && row.customerName.toLowerCase().includes(query)) ||
-      row.repair.deviceModel.toLowerCase().includes(query)
-    );
-  }, [repairs, searchQuery]);
-
-  const handleExportCSV = async () => {
-    setExporting(true);
-    try {
-      const headers = ["Repair #", "Date", "Customer", "Phone", "Model", "IMEI", "Status", "Technician", "Complaint"];
-      const rows = filteredRepairs.map((row) => [
-        row.repair.repairNumber,
-        new Date(row.repair.dateReceived).toLocaleDateString(),
-        row.customerName || "N/A",
-        row.repair.phoneNumber,
-        row.repair.deviceModel,
-        row.repair.imei,
-        row.repair.status.toUpperCase().replace("_", " "),
-        row.technicianName || "Unassigned",
-        row.repair.complaint.substring(0, 50),
-      ]);
-
-      const csvContent = [
-        headers.join(","),
-        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `repairs-export-${new Date().toISOString().split("T")[0]}.csv`);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success(`Exported ${filteredRepairs.length} repairs to CSV`);
-    } catch (error: any) {
-      toast.error("Failed to export CSV: " + error.message);
-    } finally {
-      setExporting(false);
-    }
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const params = new URLSearchParams(currentSearchParams.toString());
+    if (query.trim()) params.set("q", query.trim());
+    else params.delete("q");
+    params.set("page", "1");
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -90,17 +55,17 @@ export function RepairsListClient({ repairs, technicians }: RepairsListClientPro
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex-1">
-            <CardTitle>Recent Repairs ({filteredRepairs.length})</CardTitle>
+            <CardTitle>Repairs ({totalItems})</CardTitle>
           </div>
-          <div className="relative w-full md:w-64">
+          <form onSubmit={handleSearch} className="relative w-full md:w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search IMEI or Number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="pl-8"
             />
-          </div>
+          </form>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -118,8 +83,8 @@ export function RepairsListClient({ repairs, technicians }: RepairsListClientPro
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRepairs.length > 0 ? (
-                  filteredRepairs.map((row: any) => (
+                {repairs.length > 0 ? (
+                  repairs.map((row: any) => (
                     <TableRow key={row.repair.id}>
                       <TableCell className="text-xs whitespace-nowrap">
                         {new Date(row.repair.dateReceived).toLocaleDateString()}
@@ -172,23 +137,7 @@ export function RepairsListClient({ repairs, technicians }: RepairsListClientPro
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Quick Export</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            variant="outline" 
-            className="w-full" 
-            onClick={handleExportCSV}
-            disabled={exporting || filteredRepairs.length === 0}
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            {exporting ? "Exporting..." : `Export ${filteredRepairs.length} to CSV`}
-          </Button>
+          <TablePagination page={page} pageSize={pageSize} totalItems={totalItems} />
         </CardContent>
       </Card>
     </div>

@@ -2,30 +2,58 @@ export const dynamic = 'force-dynamic';
 
 import { db } from '@/lib/db';
 import { repairs, customers, technicians } from '@/drizzle/schema';
-import { desc, eq } from 'drizzle-orm';
+import { count, desc, eq, ilike, or } from 'drizzle-orm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Plus, Database, UserCheck, Users, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { CSVImporter } from '@/features/repairs/components/CSVImporter';
 import { RepairsListClient } from '@/features/repairs/components/RepairsListClient';
-import { RepairActions } from '@/features/repairs/components/RepairActions';
-import { AssignTechnicianButton } from '@/features/repairs/components/AssignTechnicianButton';
+import { RefreshButton } from '@/components/common/RefreshButton';
+import { ExcelExportButton } from '@/components/common/ExcelExportButton';
 
-export default async function RepairsPage() {
+export default async function RepairsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string; q?: string }>;
+}) {
   let allRepairs: any[] = [];
+  let exportRepairs: any[] = [];
   let error: string | null = null;
   let allTechnicians: any[] = [];
+  let totalItems = 0;
+  const params = await searchParams;
+  const pageSizeOptions = [5, 50, 100];
+  const requestedPageSize = Number(params.pageSize);
+  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 50;
+  const requestedPage = Number(params.page);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const searchQuery = params.q?.trim() || '';
+  const searchCondition = searchQuery
+    ? or(
+        ilike(repairs.repairNumber, `%${searchQuery}%`),
+        ilike(repairs.imei, `%${searchQuery}%`),
+        ilike(repairs.deviceModel, `%${searchQuery}%`),
+        ilike(customers.name, `%${searchQuery}%`),
+      )
+    : undefined;
 
   try {
     if (!db) {
       throw new Error("Database not initialized. Check your DATABASE_URL in Settings.");
     }
-    allRepairs = await db.select({
+    const totalRows = await db.select({ count: count() })
+      .from(repairs)
+      .leftJoin(customers, eq(repairs.customerId, customers.id))
+      .where(searchCondition);
+    totalItems = Number(totalRows[0]?.count || 0);
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const offset = (safePage - 1) * pageSize;
+
+    const repairQuery = db.select({
       repair: repairs,
       customerName: customers.name,
       technicianName: technicians.name,
@@ -33,8 +61,12 @@ export default async function RepairsPage() {
     .from(repairs)
     .leftJoin(customers, eq(repairs.customerId, customers.id))
     .leftJoin(technicians, eq(repairs.technicianId, technicians.id))
+    .where(searchCondition)
     .orderBy(desc(repairs.createdAt))
-    .limit(50);
+  ;
+
+    allRepairs = await repairQuery.limit(pageSize).offset(offset);
+    exportRepairs = await repairQuery;
 
     // Fetch all technicians for assignment dropdown
     allTechnicians = await db.select().from(technicians).where(eq(technicians.isActive, true));
@@ -43,25 +75,13 @@ export default async function RepairsPage() {
     error = e.message || "Failed to load repairs";
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, string> = {
-      open: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-      in_progress: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-      waiting_parts: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-      quality_check: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-      completed: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-      returned: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-300',
-      cancelled: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-    };
-    return variants[status] || 'bg-gray-100 text-gray-700';
-  };
-
   // Count repairs by status
   const statusCounts = allRepairs.reduce((acc: any, row: any) => {
     const s = row.repair.status;
     acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {});
+  console.log("Repairs export count:", exportRepairs.length);
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -71,12 +91,30 @@ export default async function RepairsPage() {
           <p className="text-muted-foreground">Manage and track all repair jobs</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <Link href="/repairs/new">
-            <Button className="w-full md:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              New Repair
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <ExcelExportButton
+              data={exportRepairs.map((row) => ({
+                "Repair #": row.repair.repairNumber,
+                Date: new Date(row.repair.dateReceived).toLocaleDateString(),
+                Customer: row.customerName || "N/A",
+                Phone: row.repair.phoneNumber,
+                Model: row.repair.deviceModel,
+                IMEI: row.repair.imei,
+                Status: row.repair.status.toUpperCase().replace("_", " "),
+                Technician: row.technicianName || "Unassigned",
+                Complaint: row.repair.complaint,
+              }))}
+              filename="repairs"
+              sheetName="Repairs"
+            />
+            <RefreshButton />
+            <Link href="/repairs/new">
+              <Button className="w-full md:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                New Repair
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -139,7 +177,14 @@ export default async function RepairsPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
-          <RepairsListClient repairs={allRepairs} technicians={allTechnicians} />
+          <RepairsListClient
+            repairs={allRepairs}
+            technicians={allTechnicians}
+            searchQuery={searchQuery}
+            totalItems={totalItems}
+            page={Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)))}
+            pageSize={pageSize}
+          />
         </div>
 
         <div className="space-y-6">
