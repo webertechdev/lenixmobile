@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { services, users } from "@/drizzle/schema";
-import { count, eq, desc } from "drizzle-orm";
+import { count, eq, desc, ilike, or } from "drizzle-orm";
 import { createClient } from "@/utils/supabase/server";
 
 async function requireUser() {
@@ -46,8 +46,18 @@ export async function GET(req: Request) {
     const requestedPage = Number(url.searchParams.get("page"));
     const requestedPageSize = Number(url.searchParams.get("pageSize"));
     const hasPagination = url.searchParams.has("page") || url.searchParams.has("pageSize");
+    const searchQuery = url.searchParams.get("q")?.trim() || "";
+    const searchCondition = searchQuery
+      ? or(
+          ilike(services.name, `%${searchQuery}%`),
+          ilike(services.code, `%${searchQuery}%`),
+          ilike(services.category, `%${searchQuery}%`),
+          ilike(services.description, `%${searchQuery}%`),
+          ilike(services.fee, `%${searchQuery}%`),
+        )
+      : undefined;
 
-    const totalRows = await db.select({ count: count() }).from(services);
+    const totalRows = await db.select({ count: count() }).from(services).where(searchCondition);
     const totalItems = Number(totalRows[0]?.count || 0);
     const pageSize = [5, 50, 100].includes(requestedPageSize) ? requestedPageSize : 5;
     const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -56,6 +66,7 @@ export async function GET(req: Request) {
     const query = db
       .select()
       .from(services)
+      .where(searchCondition)
       .orderBy(desc(services.name));
     const items = hasPagination
       ? await query.limit(pageSize).offset((safePage - 1) * pageSize)

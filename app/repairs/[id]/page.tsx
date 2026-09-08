@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { db } from '@/lib/db';
 import { repairs, customers, technicians, repairParts, inventory } from '@/drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Printer, ArrowLeft, UserCheck, CheckCircle, Clock, Package, Wrench } from 'lucide-react';
+import { FileText, Printer, ArrowLeft, UserCheck, CheckCircle, Clock, Package, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { JobCardPrinter } from '@/features/repairs/components/JobCardPrinter';
 import { AssignTechnicianButton } from '@/features/repairs/components/AssignTechnicianButton';
@@ -30,6 +30,16 @@ export default async function RepairDetailPage({ params }: { params: Promise<{ i
   .where(eq(repairs.id, repairId));
 
   if (!result.length) notFound();
+
+  const repairIds = await db
+    .select({ id: repairs.id })
+    .from(repairs)
+    .orderBy(desc(repairs.createdAt), desc(repairs.id));
+  const currentIndex = repairIds.findIndex((repair: { id: number }) => repair.id === repairId);
+  const previousRepairId = currentIndex > 0 ? repairIds[currentIndex - 1].id : null;
+  const nextRepairId = currentIndex >= 0 && currentIndex < repairIds.length - 1
+    ? repairIds[currentIndex + 1].id
+    : null;
 
   const partsUsed = await db.select({
     id: repairParts.id,
@@ -62,6 +72,34 @@ export default async function RepairDetailPage({ params }: { params: Promise<{ i
           <Badge variant="outline">{repairData.status.toUpperCase()}</Badge>
         </div>
         <div className="flex gap-2">
+          <div className="flex items-center gap-1 mr-2">
+            {previousRepairId ? (
+              <Link href={`/repairs/${previousRepairId}`}>
+                <Button variant="outline" size="sm">
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Previous
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+            )}
+            {nextRepairId ? (
+              <Link href={`/repairs/${nextRepairId}`}>
+                <Button variant="outline" size="sm">
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            )}
+          </div>
           <JobCardPrinter repair={repairData} />
           <RepairActions repairId={repairId} repairNumber={repairData.repairNumber} />
         </div>

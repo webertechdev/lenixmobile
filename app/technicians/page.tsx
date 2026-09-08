@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { AddTechnicianDialog } from "@/features/technicians/components/AddTechnicianDialog";
 import { EditTechnicianDialog } from "@/features/technicians/components/EditTechnicianDialog";
 import { TablePagination } from "@/components/common/TablePagination";
+import { SearchInput } from "@/components/common/SearchInput";
 import { useSearchParams } from "next/navigation";
 
 export default function TechniciansPage() {
@@ -23,6 +24,7 @@ export default function TechniciansPage() {
     ? Number(searchParams.get("pageSize"))
     : 5;
   const page = Number(searchParams.get("page")) > 0 ? Number(searchParams.get("page")) : 1;
+  const searchQuery = searchParams.get("q")?.trim() || "";
   const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
@@ -46,7 +48,9 @@ export default function TechniciansPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/technicians?page=${page}&pageSize=${pageSize}`);
+      const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (searchQuery) query.set("q", searchQuery);
+      const response = await fetch(`/api/technicians?${query.toString()}`);
       const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
@@ -235,7 +239,10 @@ export default function TechniciansPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Team Members ({totalItems})</CardTitle>
+          <div className="flex w-full flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle>All Team Members ({totalItems})</CardTitle>
+            <SearchInput value={searchQuery} placeholder="Search names, roles, skills..." />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

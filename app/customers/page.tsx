@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,16 +11,30 @@ import { DeleteButton } from '@/components/ui/delete-button';
 import { TablePagination } from '@/components/common/TablePagination';
 import { customers } from '@/drizzle/schema';
 import { count, desc } from 'drizzle-orm';
+import { ilike, or } from 'drizzle-orm';
+import { SearchInput } from '@/components/common/SearchInput';
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; pageSize?: string }>;
+  searchParams: Promise<{ page?: string; pageSize?: string; q?: string }>;
 }) {
   let allCustomers: any[] = [];
   let error: string | null = null;
   let totalItems = 0;
   const params = await searchParams;
+  const searchQuery = params.q?.trim() || '';
+  const searchCondition = searchQuery
+    ? or(
+        ilike(customers.name, `%${searchQuery}%`),
+        ilike(customers.phone, `%${searchQuery}%`),
+        ilike(customers.email, `%${searchQuery}%`),
+        ilike(customers.city, `%${searchQuery}%`),
+        ilike(customers.region, `%${searchQuery}%`),
+        ilike(customers.address, `%${searchQuery}%`),
+        ilike(customers.notes, `%${searchQuery}%`),
+      )
+    : undefined;
   const pageSizeOptions = [5, 50, 100];
   const requestedPageSize = Number(params.pageSize);
   const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
@@ -30,11 +45,12 @@ export default async function CustomersPage({
     if (!db) {
       throw new Error("Database not initialized. Check your DATABASE_URL in Settings.");
     }
-    const totalRows = await db.select({ count: count() }).from(customers);
+    const totalRows = await db.select({ count: count() }).from(customers).where(searchCondition);
     totalItems = Number(totalRows[0]?.count || 0);
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const safePage = Math.min(page, totalPages);
     allCustomers = await db.select().from(customers)
+      .where(searchCondition)
       .orderBy(desc(customers.createdAt))
       .limit(pageSize)
       .offset((safePage - 1) * pageSize);
@@ -65,13 +81,9 @@ export default async function CustomersPage({
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <CardTitle>All Customers ({totalItems})</CardTitle>
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input 
-              placeholder="Search customers..." 
-              className="pl-8 w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
+          <Suspense fallback={null}>
+            <SearchInput value={searchQuery} placeholder="Search names, phones, email..." />
+          </Suspense>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

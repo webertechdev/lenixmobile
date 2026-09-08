@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -6,13 +7,14 @@ import { Plus, Search, Package, AlertTriangle, Database } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/db';
 import { inventory, repairParts } from '@/drizzle/schema';
-import { desc, sql, count, eq } from 'drizzle-orm';
+import { desc, sql, count, eq, ilike, or } from 'drizzle-orm';
 import { EditInventoryDialog } from '@/features/inventory/components/EditInventoryDialog';
 import { AddInventoryDialog } from '@/features/inventory/components/AddInventoryDialog';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { RefreshButton } from '@/components/common/RefreshButton';
 import { TablePagination } from '@/components/common/TablePagination';
 import { ExcelExportButton } from "@/components/common/ExcelExportButton";
+import { SearchInput } from '@/components/common/SearchInput';
 
 export default async function InventoryPage({
   searchParams,
@@ -20,6 +22,7 @@ export default async function InventoryPage({
   searchParams: Promise<{
     page?: string;
     pageSize?: string;
+    q?: string;
   }>;
 }) {
   let items: any[] = [];
@@ -27,6 +30,18 @@ let exportItems: any[] = [];
 let error: string | null = null;
 let usageByPartId = new Map<number, number>();
      const params = await searchParams;
+    const searchQuery = params.q?.trim() || '';
+    const searchCondition = searchQuery
+      ? or(
+          ilike(inventory.partName, `%${searchQuery}%`),
+          ilike(inventory.partCode, `%${searchQuery}%`),
+          ilike(inventory.supplier, `%${searchQuery}%`),
+          ilike(inventory.category, `%${searchQuery}%`),
+          sql`cast(${inventory.quantity} as text) ilike ${`%${searchQuery}%`}`,
+          sql`cast(${inventory.minimumStock} as text) ilike ${`%${searchQuery}%`}`,
+          sql`cast(${inventory.unitPrice} as text) ilike ${`%${searchQuery}%`}`,
+        )
+      : undefined;
 
   const pageSizeOptions = [5, 50, 100];
   const requestedPageSize = Number(params.pageSize);
@@ -47,7 +62,8 @@ let usageByPartId = new Map<number, number>();
     }
     const totalRows = await db
       .select({ count: count() })
-      .from(inventory);
+      .from(inventory)
+      .where(searchCondition);
 
     totalItems = Number(totalRows[0]?.count || 0);
 
@@ -58,10 +74,12 @@ let usageByPartId = new Map<number, number>();
     items = await db
       .select()
       .from(inventory)
+      .where(searchCondition)
       .orderBy(desc(inventory.createdAt))
       .limit(pageSize)
       .offset(offset);
     exportItems = await db.select().from(inventory)
+      .where(searchCondition)
       .orderBy(desc(inventory.createdAt));
 
     const usageRows = await db
@@ -135,14 +153,10 @@ for (const row of usageRows) {
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <CardTitle>Stock List ({items.length} items)</CardTitle>
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input 
-              placeholder="Search parts..." 
-              className="pl-8 w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
+          <CardTitle>Stock List ({totalItems} items)</CardTitle>
+          <Suspense fallback={null}>
+            <SearchInput value={searchQuery} placeholder="Search parts, codes, suppliers..." />
+          </Suspense>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

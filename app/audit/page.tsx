@@ -1,21 +1,33 @@
+import { Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { History, User, Activity, Database, FileText, UserPlus, UserX, Wrench } from 'lucide-react';
 import { db } from '@/lib/db';
 import { auditLog, users } from '@/drizzle/schema';
-import { count, desc, eq } from 'drizzle-orm';
+import { count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { TablePagination } from '@/components/common/TablePagination';
+import { SearchInput } from '@/components/common/SearchInput';
 
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; pageSize?: string }>;
+  searchParams: Promise<{ page?: string; pageSize?: string; q?: string }>;
 }) {
   let logs: any[] = [];
   let error: string | null = null;
   let totalItems = 0;
   const params = await searchParams;
+  const searchQuery = params.q?.trim() || '';
+  const searchCondition = searchQuery
+    ? or(
+        ilike(auditLog.action, `%${searchQuery}%`),
+        ilike(auditLog.tableName, `%${searchQuery}%`),
+        sql`cast(${auditLog.recordId} as text) ilike ${`%${searchQuery}%`}`,
+        ilike(users.name, `%${searchQuery}%`),
+        ilike(users.email, `%${searchQuery}%`),
+      )
+    : undefined;
   const pageSizeOptions = [5, 50, 100];
   const requestedPageSize = Number(params.pageSize);
   const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
@@ -24,7 +36,7 @@ export default async function AuditLogPage({
   
   try {
     if (db) {
-      const totalRows = await db.select({ count: count() }).from(auditLog);
+      const totalRows = await db.select({ count: count() }).from(auditLog).leftJoin(users, eq(auditLog.userId, users.id)).where(searchCondition);
       totalItems = Number(totalRows[0]?.count || 0);
       const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
       const safePage = Math.min(page, totalPages);
@@ -35,6 +47,7 @@ export default async function AuditLogPage({
       })
       .from(auditLog)
       .leftJoin(users, eq(auditLog.userId, users.id))
+      .where(searchCondition)
       .orderBy(desc(auditLog.createdAt))
       .limit(pageSize)
       .offset((safePage - 1) * pageSize);
@@ -86,6 +99,9 @@ export default async function AuditLogPage({
             <History className="h-5 w-5" />
             System Activity
           </CardTitle>
+          <Suspense fallback={null}>
+            <SearchInput value={searchQuery} placeholder="Search users, actions, tables..." />
+          </Suspense>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

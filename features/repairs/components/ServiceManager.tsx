@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { TablePagination } from "@/components/common/TablePagination";
+import { SearchInput } from "@/components/common/SearchInput";
 
 type ServiceForm = {
   name: string;
@@ -61,14 +62,17 @@ export function ServiceManager() {
     ? Number(searchParams.get("pageSize"))
     : 5;
   const page = Number(searchParams.get("page")) > 0 ? Number(searchParams.get("page")) : 1;
+  const searchQuery = searchParams.get("q")?.trim() || "";
   const [totalItems, setTotalItems] = useState(0);
 
   const load = async () => {
     setLoading(true);
 
     try {
+      const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (searchQuery) query.set("q", searchQuery);
       const response =
-        await fetch(`/api/services?page=${page}&pageSize=${pageSize}`);
+        await fetch(`/api/services?${query.toString()}`);
 
       const data =
         await response.json();
@@ -391,9 +395,10 @@ export function ServiceManager() {
       {/* CATALOGUE */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Service Fee Catalogue
-          </CardTitle>
+          <div className="flex w-full flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <CardTitle>Service Fee Catalogue</CardTitle>
+            <SearchInput value={searchQuery} placeholder="Search services, codes, categories..." />
+          </div>
         </CardHeader>
 
         <CardContent>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { db } from '@/lib/db';
 import { technicians } from '@/drizzle/schema';
-import { count, desc } from 'drizzle-orm';
+import { count, desc, ilike, or, sql } from 'drizzle-orm';
 
 export async function GET(req: Request) {
   try {
@@ -22,16 +22,30 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const requestedPage = Number(url.searchParams.get('page'));
     const requestedPageSize = Number(url.searchParams.get('pageSize'));
+    const hasPagination = url.searchParams.has('page') || url.searchParams.has('pageSize');
+    const searchQuery = url.searchParams.get('q')?.trim() || '';
+    const searchCondition = searchQuery
+      ? or(
+          ilike(technicians.name, `%${searchQuery}%`),
+          ilike(technicians.email, `%${searchQuery}%`),
+          ilike(technicians.phone, `%${searchQuery}%`),
+          ilike(technicians.specialization, `%${searchQuery}%`),
+          sql`cast(${technicians.role} as text) ilike ${`%${searchQuery}%`}`,
+          sql`cast(${technicians.invitationStatus} as text) ilike ${`%${searchQuery}%`}`,
+        )
+      : undefined;
     const pageSize = [5, 50, 100].includes(requestedPageSize) ? requestedPageSize : 5;
     const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-    const totalRows = await db.select({ count: count() }).from(technicians);
+    const totalRows = await db.select({ count: count() }).from(technicians).where(searchCondition);
     const totalItems = Number(totalRows[0]?.count || 0);
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const safePage = Math.min(page, totalPages);
-    const techs = await db.select().from(technicians)
-      .orderBy(desc(technicians.createdAt))
-      .limit(pageSize)
-      .offset((safePage - 1) * pageSize);
+    const query = db.select().from(technicians)
+      .where(searchCondition)
+      .orderBy(desc(technicians.createdAt));
+    const techs = hasPagination
+      ? await query.limit(pageSize).offset((safePage - 1) * pageSize)
+      : await query;
 
     return NextResponse.json(techs, {
       headers: { 'X-Total-Count': String(totalItems) },

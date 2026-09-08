@@ -1,13 +1,18 @@
 export const dynamic = 'force-dynamic';
 
 import { db } from '@/lib/db';
-import { repairs, customers, technicians } from '@/drizzle/schema';
-import { count, desc, eq, ilike, or } from 'drizzle-orm';
+import {
+  repairs,
+  customers,
+  technicians,
+  repairServices,
+} from '@/drizzle/schema';
+import { count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Database, UserCheck, Users, Wrench } from 'lucide-react';
+import { Plus, Database, UserCheck, Users, Wrench, CheckCircle, RotateCcw, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { CSVImporter } from '@/features/repairs/components/CSVImporter';
 import { RepairsListClient } from '@/features/repairs/components/RepairsListClient';
@@ -24,6 +29,7 @@ export default async function RepairsPage({
   let error: string | null = null;
   let allTechnicians: any[] = [];
   let totalItems = 0;
+  let statusCounts: Record<string, number> = {};
   const params = await searchParams;
   const pageSizeOptions = [5, 50, 100];
   const requestedPageSize = Number(params.pageSize);
@@ -36,7 +42,22 @@ export default async function RepairsPage({
         ilike(repairs.repairNumber, `%${searchQuery}%`),
         ilike(repairs.imei, `%${searchQuery}%`),
         ilike(repairs.deviceModel, `%${searchQuery}%`),
+        ilike(repairs.phoneNumber, `%${searchQuery}%`),
+        ilike(repairs.city, `%${searchQuery}%`),
+        ilike(repairs.region, `%${searchQuery}%`),
+        ilike(repairs.complaint, `%${searchQuery}%`),
+        ilike(repairs.faultType, `%${searchQuery}%`),
+        sql`cast(${repairs.repairType} as text) ilike ${`%${searchQuery}%`}`,
+        sql`cast(${repairs.financialService} as text) ilike ${`%${searchQuery}%`}`,
+        sql`cast(${repairs.warrantyStatus} as text) ilike ${`%${searchQuery}%`}`,
+        sql`cast(${repairs.status} as text) ilike ${`%${searchQuery}%`}`,
+        ilike(repairs.solution, `%${searchQuery}%`),
+        ilike(repairs.remarks, `%${searchQuery}%`),
         ilike(customers.name, `%${searchQuery}%`),
+        ilike(customers.phone, `%${searchQuery}%`),
+        ilike(customers.email, `%${searchQuery}%`),
+        ilike(technicians.name, `%${searchQuery}%`),
+        ilike(technicians.email, `%${searchQuery}%`),
       )
     : undefined;
 
@@ -47,17 +68,34 @@ export default async function RepairsPage({
     const totalRows = await db.select({ count: count() })
       .from(repairs)
       .leftJoin(customers, eq(repairs.customerId, customers.id))
+      .leftJoin(technicians, eq(repairs.technicianId, technicians.id))
       .where(searchCondition);
     totalItems = Number(totalRows[0]?.count || 0);
+    const statusRows = await db.select({
+      status: repairs.status,
+      count: count(),
+    })
+      .from(repairs)
+      .leftJoin(customers, eq(repairs.customerId, customers.id))
+      .leftJoin(technicians, eq(repairs.technicianId, technicians.id))
+      .where(searchCondition)
+      .groupBy(repairs.status);
+    statusCounts = Object.fromEntries(
+      statusRows.map((row: { status: string; count: number | string }) => [row.status, Number(row.count)])
+    );
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
 
     const repairQuery = db.select({
-      repair: repairs,
-      customerName: customers.name,
-      technicianName: technicians.name,
-    })
+  repair: repairs,
+  customerName: customers.name,
+  customerEmail: customers.email,
+  customerPhone: customers.phone,
+  customerCity: customers.city,
+  customerRegion: customers.region,
+  technicianName: technicians.name,
+})
     .from(repairs)
     .leftJoin(customers, eq(repairs.customerId, customers.id))
     .leftJoin(technicians, eq(repairs.technicianId, technicians.id))
@@ -75,12 +113,6 @@ export default async function RepairsPage({
     error = e.message || "Failed to load repairs";
   }
 
-  // Count repairs by status
-  const statusCounts = allRepairs.reduce((acc: any, row: any) => {
-    const s = row.repair.status;
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {});
   console.log("Repairs export count:", exportRepairs.length);
 
   return (
@@ -102,7 +134,11 @@ export default async function RepairsPage({
     ? new Date(row.repair.dateCompleted).toLocaleDateString()
     : "",
   Customer: row.customerName || "N/A",
-  Phone: row.repair.phoneNumber,
+"Customer Phone": row.repair.phoneNumber,
+"Customer Email": row.customerEmail || "",
+"Customer City": row.customerCity || "",
+"Customer Region": row.customerRegion || "",
+Phone: row.repair.phoneNumber,
   "Device Model": row.repair.deviceModel,
   IMEI: row.repair.imei,
   City: row.repair.city || "",
@@ -177,6 +213,39 @@ export default async function RepairsPage({
             <div>
               <p className="text-xl font-bold">{statusCounts.completed || 0}</p>
               <p className="text-xs text-muted-foreground">Completed</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-3">
+            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
+              <CheckCircle className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xl font-bold">{statusCounts.quality_check || 0}</p>
+              <p className="text-xs text-muted-foreground">Quality Check</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-3">
+            <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-950">
+              <RotateCcw className="h-4 w-4 text-gray-600" />
+            </div>
+            <div>
+              <p className="text-xl font-bold">{statusCounts.returned || 0}</p>
+              <p className="text-xs text-muted-foreground">Returned</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-3">
+            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-950">
+              <XCircle className="h-4 w-4 text-red-600" />
+            </div>
+            <div>
+              <p className="text-xl font-bold">{statusCounts.cancelled || 0}</p>
+              <p className="text-xs text-muted-foreground">Cancelled</p>
             </div>
           </CardContent>
         </Card>
