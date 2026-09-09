@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { ExcelExportDateRange } from '@/components/common/ExcelExportDateRange';
 import { db } from '@/lib/db';
 import {
   repairs,
@@ -113,8 +114,26 @@ export default async function RepairsPage({
     error = e.message || "Failed to load repairs";
   }
 
-  console.log("Repairs export count:", exportRepairs.length);
 
+  console.log("Repairs export count:", exportRepairs.length);
+  const splitForExcel = (value: unknown, chunkSize = 30000) => {
+  const text = String(value ?? "");
+
+  if (text.length <= chunkSize) {
+    return { "": text };
+  }
+
+  const chunks: Record<string, string> = {};
+
+  for (let i = 0; i < text.length; i += chunkSize) {
+    const partNumber = i / chunkSize + 1;
+    chunks[partNumber === 1 ? "" : ` (${partNumber})`] = text.slice(
+      i,
+      i + chunkSize,
+    );
+  }
+  return chunks;
+};
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -124,6 +143,8 @@ export default async function RepairsPage({
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <div className="flex gap-2">
+
+<ExcelExportDateRange />
             <ExcelExportButton
               data={exportRepairs.map((row) => ({
   "Repair #": row.repair.repairNumber,
